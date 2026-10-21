@@ -13,11 +13,11 @@ hooks are resolved at runtime and removed cleanly on disable/unload.
 | Mod id | `camera_overhaul` |
 | Display name | Camera Overhaul |
 | Author | Swapnil |
-| Version | 0.2.0 |
+| Version | 0.2.1 |
 | Entry library | `libcamera_overhaul.so` |
 | ABI | `arm64-v8a` only |
 | C++ standard | C++20 |
-| Minecraft versions | `26.51` |
+| Minecraft versions | `1.26.51.1`, `1.26.*` |
 
 ## File tree
 

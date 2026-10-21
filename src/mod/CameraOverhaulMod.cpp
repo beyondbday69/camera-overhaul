@@ -166,49 +166,54 @@ bool CameraOverhaulMod::enable() {
         mShake.reset();
         mShakeEpoch = std::chrono::steady_clock::now();
 
-        const bool registered =
-            pl::modmenu::ModuleBuilder(kModuleId, "Camera Overhaul")
-                .modId(self.getId())
-                .description(
-                    "Field-of-view override and procedural handheld camera shake.")
-                .defaultEnabled(config.enabled)
-                .config(kFovKey, "Field of View", pl::modmenu::ConfigType::SliderInt,
-                        std::to_string(config.fov), std::to_string(kMinFov),
-                        std::to_string(kMaxFov))
-                .config(kShakeEnabledKey, "Camera Shake",
-                        pl::modmenu::ConfigType::Toggle,
-                        config.shake_enabled ? "true" : "false")
-                .config(kShakeIntensityKey, "Shake Intensity",
-                        pl::modmenu::ConfigType::SliderFloat,
-                        formatFloat(config.shake_intensity),
-                        formatFloat(kMinShakeIntensity),
-                        formatFloat(kMaxShakeIntensity), kShakeEnabledKey)
-                .config(kShakeSpeedKey, "Shake Speed",
-                        pl::modmenu::ConfigType::SliderFloat,
-                        formatFloat(config.shake_speed),
-                        formatFloat(kMinShakeSpeed),
-                        formatFloat(kMaxShakeSpeed), kShakeEnabledKey)
-                .config(kShakeRoughnessKey, "Shake Roughness",
-                        pl::modmenu::ConfigType::SliderFloat,
-                        formatFloat(config.shake_roughness),
-                        formatFloat(kMinShakeRoughness),
-                        formatFloat(kMaxShakeRoughness), kShakeEnabledKey)
-                .config(kShakeIdleKey, "Idle Sway",
-                        pl::modmenu::ConfigType::SliderFloat,
-                        formatFloat(config.shake_idle),
-                        formatFloat(kMinShakeIdle),
-                        formatFloat(kMaxShakeIdle), kShakeEnabledKey)
-                .onToggle(onToggle)
-                .onConfigChanged(onConfigChanged)
-                .registerModule();
+        try {
+            const bool registered =
+                pl::modmenu::ModuleBuilder(kModuleId, "Camera Overhaul")
+                    .modId(self.getId())
+                    .description(
+                        "Field-of-view override and procedural handheld camera shake.")
+                    .defaultEnabled(config.enabled)
+                    .config(kFovKey, "Field of View", pl::modmenu::ConfigType::SliderInt,
+                            std::to_string(config.fov), std::to_string(kMinFov),
+                            std::to_string(kMaxFov))
+                    .config(kShakeEnabledKey, "Camera Shake",
+                            pl::modmenu::ConfigType::Toggle,
+                            config.shake_enabled ? "true" : "false")
+                    .config(kShakeIntensityKey, "Shake Intensity",
+                            pl::modmenu::ConfigType::SliderFloat,
+                            formatFloat(config.shake_intensity),
+                            formatFloat(kMinShakeIntensity),
+                            formatFloat(kMaxShakeIntensity), kShakeEnabledKey)
+                    .config(kShakeSpeedKey, "Shake Speed",
+                            pl::modmenu::ConfigType::SliderFloat,
+                            formatFloat(config.shake_speed),
+                            formatFloat(kMinShakeSpeed),
+                            formatFloat(kMaxShakeSpeed), kShakeEnabledKey)
+                    .config(kShakeRoughnessKey, "Shake Roughness",
+                            pl::modmenu::ConfigType::SliderFloat,
+                            formatFloat(config.shake_roughness),
+                            formatFloat(kMinShakeRoughness),
+                            formatFloat(kMaxShakeRoughness), kShakeEnabledKey)
+                    .config(kShakeIdleKey, "Idle Sway",
+                            pl::modmenu::ConfigType::SliderFloat,
+                            formatFloat(config.shake_idle),
+                            formatFloat(kMinShakeIdle),
+                            formatFloat(kMaxShakeIdle), kShakeEnabledKey)
+                    .onToggle(onToggle)
+                    .onConfigChanged(onConfigChanged)
+                    .registerModule();
 
-        if (!registered) {
-            self.getLogger().error("Failed to register Mod Menu module {}", kModuleId);
-            return false;
+            if (registered) {
+                mModuleRegistered = true;
+                self.getLogger().info("Registered Mod Menu module {}", kModuleId);
+            } else {
+                self.getLogger().warn("Failed to register Mod Menu module {}", kModuleId);
+            }
+        } catch (const std::exception &ex) {
+            self.getLogger().warn("Exception registering Mod Menu module: {}", ex.what());
+        } catch (...) {
+            self.getLogger().warn("Unknown exception registering Mod Menu module");
         }
-
-        mModuleRegistered = true;
-        self.getLogger().info("Registered Mod Menu module {}", kModuleId);
 
         installCameraHooks();
         return true;

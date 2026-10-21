@@ -28,7 +28,7 @@ if(ANDROID)
     FetchContent_Declare(
         preloader_android
         GIT_REPOSITORY https://github.com/LiteLDev/preloader-android.git
-        GIT_TAG 0.2.2)
+        GIT_TAG 5d108da350ce3e7f13f51415f81e65344ecd5d14)
 else()
     # The SDK is an Android-only CMake project: its own CMakeLists.txt aborts
     # when ANDROID is not set. Host builds only need the public headers in
@@ -38,7 +38,7 @@ else()
     FetchContent_Declare(
         preloader_android
         GIT_REPOSITORY https://github.com/LiteLDev/preloader-android.git
-        GIT_TAG 0.2.2
+        GIT_TAG 5d108da350ce3e7f13f51415f81e65344ecd5d14
         SOURCE_SUBDIR cmake/host-sdk)
 endif()
 
