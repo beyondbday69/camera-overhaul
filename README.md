@@ -95,14 +95,14 @@ packaged defaults can never drift away from the code.
 
 ```json
 {
-    "version": 1,
     "enabled": true,
     "fov": 70,
     "shake_enabled": true,
+    "shake_idle": 0.4,
     "shake_intensity": 0.6,
-    "shake_speed": 1.0,
     "shake_roughness": 0.55,
-    "shake_idle": 0.4
+    "shake_speed": 1.0,
+    "version": 1
 }
 ```
 
@@ -176,6 +176,15 @@ process.
 
 - **Build**: GitHub Actions compiles the mod and produces the `.levipack`
   artifact on every push. Local builds are no longer used.
+- **Verified on GitHub Actions**: the `Build` workflow is green on `main`
+  (run
+  [39635095879](https://github.com/beyondbday69/camera-overhaul/actions/runs/39635095879))
+  and on the `v0.2.0` tag (run
+  [39635758086](https://github.com/beyondbday69/camera-overhaul/actions/runs/39635758086)).
+- **Release**: tag
+  [`v0.2.0`](https://github.com/beyondbday69/camera-overhaul/releases/tag/v0.2.0)
+  publishes
+  [`camera_overhaul.levipack`](https://github.com/beyondbday69/camera-overhaul/releases/download/v0.2.0/camera_overhaul.levipack).
 - **Implemented**: `CameraAPI` slot 7 (`getFov`) is overridden with the
   configured FOV in radians; slot 6 (`getShakeOffsets`) gets a procedural
   rotational offset appended every frame. Both slots are resolved through
