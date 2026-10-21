@@ -12,6 +12,7 @@
 #include "mod/CameraShake.h"
 #include "mod/Config.h"
 
+#include <pl/Input.hpp>
 #include <pl/Mod.hpp>
 #include <pl/memory/Hook.hpp>
 
@@ -92,6 +93,17 @@ class CameraOverhaulMod {
     void removeCameraHooks();
 
     void unregisterModule();
+
+    double mLastSampleTime{0.0};
+    std::mutex mTouchMutex;
+    struct TouchPoint {
+        float x = 0.0f;
+        float y = 0.0f;
+    };
+    std::unordered_map<int, TouchPoint> mTouchPoints;
+
+    bool handleTouch(const pl::input::TouchEvent &ev);
+    bool handleKey(const pl::input::KeyEvent &ev);
 
     static std::optional<float> getFovDetour(void *self);
     static std::vector<ShakeEntry> getShakeOffsetsDetour(void *self,

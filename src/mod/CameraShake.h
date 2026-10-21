@@ -3,41 +3,55 @@
 #include <array>
 #include <atomic>
 #include <cstddef>
+#include <mutex>
 
 namespace camera_overhaul {
 
+struct ModConfig;
+
 /**
- * @brief User-tunable parameters of the procedural camera shake.
+ * @brief User-tunable parameters of the procedural camera shake and tilt.
  */
 struct ShakeSettings {
-    bool enabled = true;
-    /** Base angular amplitude in degrees. */
+    bool enabled = false;
     float intensity = 0.35f;
-    /** Frequency multiplier; 1.0 is a natural handheld cadence. */
     float speed = 1.0f;
-    /** 0 = smooth drift, 1 = gritty high-frequency jitter. */
     float roughness = 0.55f;
-    /** Extra low-frequency sway while standing still, 0..1. */
     float idle = 0.40f;
+
+    bool tiltEnabled = true;
+    float tiltIntensity = 1.0f;
+    float tiltSmoothness = 12.0f;
+
+    bool shoulderEnabled = true;
+    float shoulderSide = 0.75f;
+    float shoulderHeight = 0.20f;
+    float shoulderBack = -0.15f;
 };
 
 /**
- * @brief Rotation offset in degrees added on top of the camera rotation.
+ * @brief Rotation offset in degrees (pitch, yaw, roll) added on top of the camera.
  */
 struct ShakeOffset {
-    float yaw = 0.0f;
     float pitch = 0.0f;
+    float yaw = 0.0f;
+    float roll = 0.0f;
 };
 
 /**
- * @brief Deterministic, frame-rate independent handheld camera shake.
- *
- * The engine is a sum of smooth value-noise octaves (slow drift, medium sway,
- * high-frequency jitter) plus decaying impulse responses. The signal is a pure
- * function of time, so a variable frame rate cannot change its character.
- *
- * Settings and impulses may be written from any thread; `sample()` is meant to
- * run on the camera thread.
+ * @brief Position offset in blocks added to third-person camera for shoulder view.
+ */
+struct PositionOffset {
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+};
+
+/**
+ * @brief Camera motion engine:
+ *  - Dynamic lean / roll tilt when turning and strafing
+ *  - Over-the-shoulder 3rd person camera translation
+ *  - Optional procedural handheld noise shake
  */
 class CameraShake {
   public:
@@ -46,14 +60,29 @@ class CameraShake {
     void configure(const ShakeSettings &settings);
     [[nodiscard]] ShakeSettings settings() const;
 
+    /** Ingests touch movement: dx/dy in screen points; isLook=true for aiming side. */
+    void addTouchMotion(float dx, float dy, bool isLook);
+
+    /** Ingests keyboard strafe: -1 = left, +1 = right, 0 = none. */
+    void setKeyStrafe(int direction);
+
+    /** Toggles shoulder between right (+offset) and left (-offset). */
+    void toggleShoulderSide();
+
     /** Queues an impulse (landing, hit, ...) with the given strength in degrees. */
     void impulse(float strength);
 
     /**
-     * @brief Samples the offset for the given monotonically increasing time.
-     * @param timeSeconds Seconds since an arbitrary fixed epoch.
+     * @brief Samples rotation offset (pitch, yaw, roll) for the current frame.
+     * @param timeSeconds Monotonic time in seconds.
+     * @param dt Elapsed time since previous sample in seconds.
      */
-    [[nodiscard]] ShakeOffset sample(double timeSeconds);
+    [[nodiscard]] ShakeOffset sample(double timeSeconds, float dt);
+
+    /**
+     * @brief Samples position offset for shoulder camera.
+     */
+    [[nodiscard]] PositionOffset samplePosition() const;
 
     void reset();
 
@@ -65,14 +94,32 @@ class CameraShake {
 
     static constexpr std::size_t kMaxImpulses = 8;
 
-    std::atomic<bool> mEnabled{true};
+    // Noise shake settings
+    std::atomic<bool> mNoiseEnabled{false};
     std::atomic<float> mIntensity{0.35f};
     std::atomic<float> mSpeed{1.0f};
     std::atomic<float> mRoughness{0.55f};
     std::atomic<float> mIdle{0.40f};
 
-    std::atomic<float> mPendingImpulse{0.0f};
+    // Tilt settings
+    std::atomic<bool> mTiltEnabled{true};
+    std::atomic<float> mTiltIntensity{1.0f};
+    std::atomic<float> mTiltSmoothness{12.0f};
 
+    // Shoulder cam settings
+    std::atomic<bool> mShoulderEnabled{true};
+    std::atomic<float> mShoulderSide{0.75f};
+    std::atomic<float> mShoulderHeight{0.20f};
+    std::atomic<float> mShoulderBack{-0.15f};
+
+    // Dynamic tilt state
+    std::atomic<float> mAccumulatedTurnVelocity{0.0f};
+    std::atomic<float> mAccumulatedStrafeVelocity{0.0f};
+    std::atomic<int> mKeyStrafeDir{0};
+    float mCurrentRoll{0.0f};
+    float mTargetRoll{0.0f};
+
+    std::atomic<float> mPendingImpulse{0.0f};
     std::array<Impulse, kMaxImpulses> mImpulses{};
     std::size_t mNextImpulse = 0;
 };
