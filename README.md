@@ -105,8 +105,9 @@ packaged defaults can never drift away from the code.
 4. It also runs for tags matching `v*`; for those runs the `.levipack` is
    attached to a GitHub Release automatically.
 
-The workflow installs the Android SDK, the Android NDK (`r28c`, via
-`nttld/setup-ndk`), CMake and Ninja, then runs `scripts/package.sh`.
+The workflow uses the Android SDK that ships with the `ubuntu-latest` runner,
+installs the Android NDK (`r28c`, via `nttld/setup-ndk`), CMake and Ninja, then
+runs `scripts/package.sh`.
 
 ## Download the artifact
 
@@ -165,8 +166,11 @@ process.
 - **Built and verified locally**: the host config generator and the Android
   `arm64-v8a` library (`libcamera_overhaul.so`), including the `.levipack`
   packaging step.
-- **Verified on GitHub Actions**: the `Build` workflow runs on every push and
-  produces `camera_overhaul.levipack`.
+- **Verified on GitHub Actions**: the `Build` workflow is green on `main` and on
+  the `v0.1.0` tag. Each run builds and uploads the `camera_overhaul` artifact.
+- **Release**: tag `v0.1.0` published
+  [`camera_overhaul.levipack`](https://github.com/beyondbday69/camera-overhaul/releases/tag/v0.1.0)
+  as a release asset.
 - **Not verified**: the mod has never been imported into a running LeviLaunchroid
   on a device. The Mod Menu module is registered but deliberately does not
   change any camera behaviour yet.
