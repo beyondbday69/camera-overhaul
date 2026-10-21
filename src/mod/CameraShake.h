@@ -1,19 +1,36 @@
 #pragma once
 
 #include <atomic>
-#include <cstddef>
+#include <cstdint>
 
 namespace camera_overhaul {
 
-struct ModConfig;
-
 /**
- * @brief User-tunable parameters for dynamic camera lean/tilt.
+ * @brief Configuration parameters matching Mirsario's Minecraft-CameraOverhaul.
+ * https://github.com/Mirsario/Minecraft-CameraOverhaul
  */
-struct TiltSettings {
-    bool tiltEnabled = true;
-    float tiltIntensity = 1.0f;
-    float tiltSmoothness = 8.0f;
+struct MirsarioConfig {
+    bool enabled = true;
+
+    // Turning Roll parameters
+    double turningRollAccumulation = 1.0;
+    double turningRollIntensity = 1.25;
+    double turningRollSmoothing = 1.0;
+
+    // Contextual velocity factors
+    double strafingRollFactor = 10.0;
+    double forwardVelocityPitchFactor = 7.0;
+    double verticalVelocityPitchFactor = 2.5;
+    double horizontalVelocitySmoothingFactor = 1.0;
+    double verticalVelocitySmoothingFactor = 1.0;
+
+    // Idle camera sway
+    bool cameraSwayEnabled = true;
+    double cameraSwayIntensity = 0.60;
+    double cameraSwayFrequency = 0.16;
+    double cameraSwayFadeInDelay = 0.15;
+    double cameraSwayFadeInLength = 5.0;
+    double cameraSwayFadeOutLength = 0.75;
 };
 
 /**
@@ -26,26 +43,29 @@ struct ShakeOffset {
 };
 
 /**
- * @brief Dynamic camera motion engine:
- *  - Buttery smooth lean/roll tilt when turning (looking left/right)
- *  - Continuous lean/roll tilt when strafing (moving left/right via joystick or keys A/D)
- *  - Exponential spring centering when stationary
+ * @brief Exact C++ engine of Mirsario's CameraOverhaul CameraSystem.
  */
 class CameraShake {
   public:
     CameraShake() = default;
 
-    void configure(const TiltSettings &settings);
-    [[nodiscard]] TiltSettings settings() const;
+    void configure(const MirsarioConfig &cfg);
+    [[nodiscard]] MirsarioConfig config() const;
 
     /** Ingests look turn delta in screen pixels. */
-    void addTurnDelta(float dx);
+    void addTurnDelta(float dx, float dy);
 
-    /** Ingests continuous touch strafe (-1.0 to 1.0). */
-    void setTouchStrafe(float strafe);
+    /** Ingests continuous movement input: strafe (-1 to 1) and forward (-1 to 1). */
+    void setMovementInput(float strafe, float forward);
 
-    /** Ingests keyboard strafe: -1 = left (Key A), +1 = right (Key D), 0 = none. */
-    void setKeyStrafe(int direction);
+    /** Ingests keyboard movement: keys A/D and W/S. */
+    void setKeyInput(int strafe, int forward);
+
+    /** Ingests vertical velocity (jumping / falling). */
+    void setVerticalVelocity(float vy);
+
+    /** Notifies player action to fade out camera sway. */
+    void notifyOfPlayerAction(double timeSeconds);
 
     /**
      * @brief Samples rotation offset (pitch, yaw, roll) for the current frame.
@@ -57,22 +77,26 @@ class CameraShake {
     void reset();
 
   private:
-    std::atomic<bool> mTiltEnabled{true};
-    std::atomic<float> mTiltIntensity{1.0f};
-    std::atomic<float> mTiltSmoothness{8.0f};
+    MirsarioConfig mCfg;
 
-    // Continuous strafe inputs
+    std::atomic<float> mTurnDeltaX{0.0f};
+    std::atomic<float> mTurnDeltaY{0.0f};
     std::atomic<float> mTouchStrafe{0.0f};
-    std::atomic<int> mKeyStrafeDir{0};
+    std::atomic<float> mTouchForward{0.0f};
+    std::atomic<int> mKeyStrafe{0};
+    std::atomic<int> mKeyForward{0};
+    std::atomic<float> mVerticalVelocity{0.0f};
 
-    // Look/turn accumulator (screen delta from touch)
-    std::atomic<float> mTurnAccumulator{0.0f};
+    // Mirsario internal state
+    double mTurningRollTargetOffset{0.0};
+    double mPrevStrafingRollOffset{0.0};
+    double mPrevForwardPitchOffset{0.0};
+    double mPrevVerticalPitchOffset{0.0};
 
-    // Low-pass filtered turn velocity to eliminate touch stutter/jitter
-    float mFilteredTurnVelocity{0.0f};
-
-    // Current smoothed camera roll angle (in degrees)
-    float mCurrentRoll{0.0f};
+    // Mirsario sway state
+    double mLastActionTime{0.0};
+    double mCameraSwayFactor{0.0};
+    double mCameraSwayFactorTarget{0.0};
 };
 
 } // namespace camera_overhaul

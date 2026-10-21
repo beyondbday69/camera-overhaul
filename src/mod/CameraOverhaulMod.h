@@ -103,6 +103,8 @@ class CameraOverhaulMod {
     };
     std::unordered_map<int, TouchPoint> mTouchPoints;
     float mMaxSeenX{0.0f};
+    int mKeyStrafeDir{0};
+    int mKeyForwardDir{0};
 
     bool handleTouch(const pl::input::TouchEvent &ev);
     bool handleKey(const pl::input::KeyEvent &ev);

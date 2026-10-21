@@ -14,7 +14,7 @@ motion blur. All hooks are resolved at runtime and removed cleanly on disable/un
 | Mod id | `camera_overhaul` |
 | Display name | Camera Overhaul |
 | Author | Swapnil |
-| Version | 0.4.0 |
+| Version | 0.4.1 |
 | Entry library | `libcamera_overhaul.so` |
 | ABI | `arm64-v8a` only |
 | C++ standard | C++20 |

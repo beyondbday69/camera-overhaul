@@ -287,11 +287,14 @@ ModConfig CameraOverhaulMod::snapshotConfig() const {
 }
 
 void CameraOverhaulMod::applyShakeSettings(const ModConfig &config) {
-    TiltSettings settings;
-    settings.tiltEnabled = config.tilt_enabled;
-    settings.tiltIntensity = config.tilt_intensity;
-    settings.tiltSmoothness = config.tilt_smoothness;
-    mShake.configure(settings);
+    MirsarioConfig cfg;
+    cfg.enabled = config.tilt_enabled;
+    cfg.turningRollIntensity = config.tilt_intensity;
+    cfg.turningRollSmoothing = 8.0 / std::max(1.0f, config.tilt_smoothness);
+    cfg.strafingRollFactor = 10.0 * config.tilt_intensity;
+    cfg.forwardVelocityPitchFactor = 7.0 * config.tilt_intensity;
+    cfg.cameraSwayEnabled = true;
+    mShake.configure(cfg);
 }
 
 double CameraOverhaulMod::shakeTimeSeconds() const {
@@ -322,14 +325,17 @@ bool CameraOverhaulMod::handleTouch(const pl::input::TouchEvent &ev) {
         auto it = mTouchPoints.find(ev.pointerId);
         if (it != mTouchPoints.end()) {
             if (it->second.isMovement) {
-                // Continuous virtual joystick displacement from touch origin
+                // Continuous virtual joystick displacement from touch origin: X = strafe, Y = forward
                 const float displacementX = ev.x - it->second.startX;
+                const float displacementY = ev.y - it->second.startY;
                 const float strafe = std::clamp(displacementX / 75.0f, -1.0f, 1.0f);
-                mShake.setTouchStrafe(strafe);
+                const float forward = std::clamp(-displacementY / 75.0f, -1.0f, 1.0f);
+                mShake.setMovementInput(strafe, forward);
             } else {
                 // Aim / look turn delta
                 const float dx = ev.x - it->second.prevX;
-                mShake.addTurnDelta(dx);
+                const float dy = ev.y - it->second.prevY;
+                mShake.addTurnDelta(dx, dy);
             }
             it->second.prevX = ev.x;
             it->second.prevY = ev.y;
@@ -347,7 +353,7 @@ bool CameraOverhaulMod::handleTouch(const pl::input::TouchEvent &ev) {
         auto it = mTouchPoints.find(ev.pointerId);
         if (it != mTouchPoints.end()) {
             if (it->second.isMovement) {
-                mShake.setTouchStrafe(0.0f);
+                mShake.setMovementInput(0.0f, 0.0f);
             }
             mTouchPoints.erase(it);
         }
@@ -360,10 +366,15 @@ bool CameraOverhaulMod::handleKey(const pl::input::KeyEvent &ev) {
         return false;
     }
     if (ev.keyCode == 29) { // Key A
-        mShake.setKeyStrafe(ev.isKeyDown ? -1 : 0);
+        mKeyStrafeDir = ev.isKeyDown ? -1 : 0;
     } else if (ev.keyCode == 32) { // Key D
-        mShake.setKeyStrafe(ev.isKeyDown ? 1 : 0);
+        mKeyStrafeDir = ev.isKeyDown ? 1 : 0;
+    } else if (ev.keyCode == 51) { // Key W
+        mKeyForwardDir = ev.isKeyDown ? 1 : 0;
+    } else if (ev.keyCode == 47) { // Key S
+        mKeyForwardDir = ev.isKeyDown ? -1 : 0;
     }
+    mShake.setKeyInput(mKeyStrafeDir, mKeyForwardDir);
     return false;
 }
 
@@ -469,14 +480,15 @@ CameraOverhaulMod::getShakeOffsetsDetour(void *self, void *context, float a,
                              : 0.016f;
         mod.mLastSampleTime = now;
 
-        // Dynamic Lean / Roll tilt
-        const ShakeOffset rotOffset = mod.mShake.sample(now, dt);
-        if (std::abs(rotOffset.roll) > 0.005f) {
+        // Mirsario Camera Overhaul Offsets (Pitch, Yaw, Roll)
+        const ShakeOffset offset = mod.mShake.sample(now, dt);
+        if (std::abs(offset.pitch) > 0.001f || std::abs(offset.yaw) > 0.001f ||
+            std::abs(offset.roll) > 0.001f) {
             ShakeEntry rotEntry;
-            rotEntry.x = 0.0f;
-            rotEntry.y = 0.0f;
-            rotEntry.z = rotOffset.roll; // DYNAMIC ROLL TILT (degrees)
-            rotEntry.type = 0;          // Rotational
+            rotEntry.x = offset.pitch; // Mirsario pitch
+            rotEntry.y = offset.yaw;   // Mirsario yaw sway
+            rotEntry.z = offset.roll;  // Mirsario turning + strafe roll
+            rotEntry.type = 0;         // Rotational
             offsets.push_back(rotEntry);
         }
     } catch (...) {
