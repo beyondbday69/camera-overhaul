@@ -1,0 +1,28 @@
+{
+    "description": "Configuration for the Camera Overhaul native mod.",
+    "properties": {
+        "enabled": {
+            "default": true,
+            "description": "Turns the Camera Overhaul module on or off.",
+            "title": "Enabled",
+            "type": "boolean"
+        },
+        "fov": {
+            "default": 70,
+            "description": "Camera field of view in degrees.",
+            "maximum": 140.0,
+            "minimum": 30.0,
+            "title": "Field of View",
+            "type": "integer"
+        },
+        "version": {
+            "default": 1,
+            "description": "Config schema version managed by the mod.",
+            "readOnly": true,
+            "title": "Version",
+            "type": "integer"
+        }
+    },
+    "title": "Camera Overhaul",
+    "type": "object"
+}
