@@ -1,21 +1,52 @@
 #pragma once
 
+#include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <mutex>
 #include <optional>
+#include <string_view>
+#include <vector>
 
+#include "mod/CameraShake.h"
 #include "mod/Config.h"
 
 #include <pl/Mod.hpp>
+#include <pl/memory/Hook.hpp>
 
 namespace camera_overhaul {
+
+/**
+ * @brief One camera shake offset consumed by Minecraft's CameraAPI.
+ *
+ * Layout verified against Bedrock 1.26.51: three floats followed by a one-byte
+ * shake type and three padding bytes. Type 0 is rotational (the game adds the
+ * vector to the camera rotation), type 1 is positional.
+ */
+struct ShakeEntry {
+    float x{};
+    float y{};
+    float z{};
+    std::uint8_t type{};
+    std::uint8_t padding[3]{};
+};
+
+static_assert(sizeof(ShakeEntry) == 16, "CameraAPI shake entries are 16 bytes");
+static_assert(offsetof(ShakeEntry, type) == 12,
+              "CameraAPI shake type lives at offset 12");
 
 /**
  * @brief C++ lifecycle mod for LeviLaunchroid.
  *
  * The lifecycle order is load() -> enable() -> disable() -> unload(). The mod
- * currently ships UI only: it registers a single Mod Menu module and stores
- * the field-of-view slider value in the typed config file. No camera hook is
- * installed yet.
+ * registers a Mod Menu module and installs two hooks on the game's CameraAPI:
+ *
+ *  - slot 7 (getFov) is overridden with the configured field of view.
+ *  - slot 6 (getShakeOffsets) gets a procedural handheld offset appended.
+ *
+ * Both hooks are resolved through RTTI at enable time and removed again in
+ * disable()/unload(). A failed lookup is logged and leaves the game untouched.
  */
 class CameraOverhaulMod {
   public:
@@ -31,14 +62,44 @@ class CameraOverhaulMod {
     bool unload();
 
   private:
+    using GetFovFn = std::optional<float> (*)(void *self);
+    using GetShakeOffsetsFn = std::vector<ShakeEntry> (*)(
+        void *self, void *context, float a, float b, float c);
+
     ll::mod::NativeMod &mSelf;
     mutable std::mutex mConfigMutex;
     std::optional<pl::config::ConfigFile<ModConfig>> mConfigFile;
     bool mModuleRegistered{false};
 
+    pl::memory::HookHandle mFovHook;
+    pl::memory::HookHandle mShakeHook;
+    GetFovFn mOriginalGetFov{};
+    GetShakeOffsetsFn mOriginalGetShakeOffsets{};
+
+    CameraShake mShake;
+    std::chrono::steady_clock::time_point mShakeEpoch{};
+
+    std::atomic<bool> mFeatureEnabled{true};
+    std::atomic<int> mFov{70};
+    std::atomic<bool> mFovHookSeen{false};
+    std::atomic<bool> mShakeHookSeen{false};
+
     [[nodiscard]] ModConfig snapshotConfig() const;
+    void applyShakeSettings(const ModConfig &config);
+    [[nodiscard]] double shakeTimeSeconds() const;
+
+    void installCameraHooks();
+    void removeCameraHooks();
+
     void unregisterModule();
-    bool persistConfig(int fov);
+
+    static std::optional<float> getFovDetour(void *self);
+    static std::vector<ShakeEntry> getShakeOffsetsDetour(void *self,
+                                                         void *context, float a,
+                                                         float b, float c);
+
+    static void onToggle(std::string_view moduleId, bool enabled);
+    void handleToggle(std::string_view moduleId, bool enabled);
 
     static void onConfigChanged(std::string_view moduleId, std::string_view key,
                                 std::string_view value);

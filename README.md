@@ -1,18 +1,19 @@
 # Camera Overhaul
 
-Native **LeviLaunchroid** (Minecraft Bedrock / Android) mod skeleton, built on the
+Native **LeviLaunchroid** (Minecraft Bedrock / Android) mod that overrides the
+field of view and adds a procedural handheld camera shake, built on the
 [Preloader SDK](https://github.com/LiteLDev/preloader-android).
 
-This is the **skeleton only**: the mod ships an empty lifecycle, a typed config
-file, and a single Mod Menu module with a field-of-view slider. **No camera
-behaviour and no game hook is installed yet** – the slider is UI only.
+The mod hooks the game's own `CameraAPI` vtable through RTTI, so the effect goes
+through the same camera pipeline Minecraft uses for its built-in shake. Both
+hooks are resolved at runtime and removed cleanly on disable/unload.
 
 | Field | Value |
 | --- | --- |
 | Mod id | `camera_overhaul` |
 | Display name | Camera Overhaul |
 | Author | Swapnil |
-| Version | 0.1.0 |
+| Version | 0.2.0 |
 | Entry library | `libcamera_overhaul.so` |
 | ABI | `arm64-v8a` only |
 | C++ standard | C++20 |
@@ -40,8 +41,10 @@ camera_overhaul/
     ├── config_generator.cpp   Host tool that writes config/config.json + schema
     ├── main.cpp               PL_REGISTER_MOD entry point
     └── mod/
-        ├── CameraOverhaulMod.cpp  Lifecycle + Mod Menu module
+        ├── CameraOverhaulMod.cpp  Lifecycle, Mod Menu module, CameraAPI hooks
         ├── CameraOverhaulMod.h
+        ├── CameraShake.cpp    Procedural handheld shake engine
+        ├── CameraShake.h
         ├── Config.cpp          Typed config helpers
         └── Config.h            ModConfig struct + JSON schema metadata
 ```
@@ -61,8 +64,10 @@ Every symbol below exists in the pinned SDK release
 | `NativeMod::getLogger()` | `include/pl/Mod.hpp` |
 | `pl::log::Logger::info/warn/error/debug(fmt, args...)` | `include/pl/Logger.hpp` |
 | `pl::modmenu::ModuleBuilder` | `include/pl/ModMenu.hpp` |
-| `pl::modmenu::ConfigType::SliderInt` | `include/pl/ModMenu.hpp` |
+| `pl::modmenu::ConfigType::SliderInt`, `SliderFloat`, `Toggle` | `include/pl/ModMenu.hpp` |
 | `pl::modmenu::unregisterModule(std::string_view)` | `include/pl/ModMenu.hpp` |
+| `pl::memory::resolveVtableFunction(typeInfo, slot, module)` | `include/pl/memory/Vtable.hpp` |
+| `pl::memory::HookHandle`, `pl::memory::hook` | `include/pl/memory/Hook.hpp` |
 | `pl::config::ConfigFile<T>` | `include/pl/Config.hpp` |
 | `pl::config::Schema<T>`, `pl::config::FieldSchema` | `include/pl/Config.hpp` |
 | `pl::config::defaultJson(T)`, `pl::config::schema(T)` | `include/pl/Config.hpp` |
@@ -74,10 +79,10 @@ the loader-provided handle in `mSelf` (`*ll::mod::NativeMod::current()`).
 
 | Phase | Behaviour |
 | --- | --- |
-| `load()` | Creates the config directory, loads/merges `config/config.json` through `pl::config::ConfigFile<ModConfig>`, clamps the FOV value, logs `Loaded`. Returns `false` on failure. |
-| `enable()` | Registers exactly one Mod Menu module, `camera_overhaul.main`, with a single **Field of View** slider (30–140). UI only – no hook. |
-| `disable()` | Unregisters the Mod Menu module and logs `Disabled`. |
-| `unload()` | Unregisters the module and releases the config file. |
+| `load()` | Creates the config directory, loads/merges `config/config.json` through `pl::config::ConfigFile<ModConfig>`, clamps and persists the normalized values, logs `Loaded`. Returns `false` on failure. |
+| `enable()` | Registers the `camera_overhaul.main` Mod Menu module (FOV slider plus shake toggle/sliders) and installs the two `CameraAPI` hooks. Missing targets are logged; the mod never crashes the game because of them. |
+| `disable()` | Removes both hooks, resets the shake engine, unregisters the Mod Menu module and logs `Disabled`. |
+| `unload()` | Removes hooks, unregisters the module and releases the config file. |
 
 Every lifecycle entry point catches exceptions and returns `false` on failure, so
 no exception ever crosses the lifecycle boundary.
@@ -90,9 +95,14 @@ packaged defaults can never drift away from the code.
 
 ```json
 {
+    "version": 1,
     "enabled": true,
     "fov": 70,
-    "version": 1
+    "shake_enabled": true,
+    "shake_intensity": 0.6,
+    "shake_speed": 1.0,
+    "shake_roughness": 0.55,
+    "shake_idle": 0.4
 }
 ```
 
@@ -129,7 +139,8 @@ For a `v*` tag, the same file is attached to the GitHub Release page.
 3. Confirm the import dialog. LeviLaunchroid extracts the package into the
    mod folder of the selected Minecraft version.
 4. Start the game. The Mod Menu shows the **Camera Overhaul** module with the
-   **Field of View** slider. Moving the slider rewrites
+   **Field of View** slider and the **Camera Shake** toggle plus its intensity,
+   speed, roughness and idle-sway sliders. Changes are written back to
    `config/config.json` inside the installed mod folder.
 
 Alternatively, copy the unpacked `camera_overhaul/` folder into the native mod
@@ -163,14 +174,13 @@ process.
 
 ## Status
 
-- **Built and verified locally**: the host config generator and the Android
-  `arm64-v8a` library (`libcamera_overhaul.so`), including the `.levipack`
-  packaging step.
-- **Verified on GitHub Actions**: the `Build` workflow is green on `main` and on
-  the `v0.1.0` tag. Each run builds and uploads the `camera_overhaul` artifact.
-- **Release**: tag `v0.1.0` published
-  [`camera_overhaul.levipack`](https://github.com/beyondbday69/camera-overhaul/releases/tag/v0.1.0)
-  as a release asset.
-- **Not verified**: the mod has never been imported into a running LeviLaunchroid
-  on a device. The Mod Menu module is registered but deliberately does not
-  change any camera behaviour yet.
+- **Build**: GitHub Actions compiles the mod and produces the `.levipack`
+  artifact on every push. Local builds are no longer used.
+- **Implemented**: `CameraAPI` slot 7 (`getFov`) is overridden with the
+  configured FOV in radians; slot 6 (`getShakeOffsets`) gets a procedural
+  rotational offset appended every frame. Both slots are resolved through
+  `_ZTS9CameraAPI` RTTI, not hard-coded addresses.
+- **Not verified yet**: the mod has not been imported into a running
+  LeviLaunchroid on a device. In-game testing is the next step; the game log
+  prints `Camera FOV hook is live` and `Camera shake hook is live` once each
+  hook fires.

@@ -124,7 +124,8 @@ find_library(LL_LOG_LIB log REQUIRED)
 add_library(${MOD_LIBRARY_NAME} SHARED
     src/main.cpp
     src/mod/Config.cpp
-    src/mod/CameraOverhaulMod.cpp)
+    src/mod/CameraOverhaulMod.cpp
+    src/mod/CameraShake.cpp)
 
 set_target_properties(${MOD_LIBRARY_NAME} PROPERTIES
     OUTPUT_NAME "${MOD_LIBRARY_NAME}")
