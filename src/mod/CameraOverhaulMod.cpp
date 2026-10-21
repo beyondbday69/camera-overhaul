@@ -1,4 +1,5 @@
 #include "mod/CameraOverhaulMod.h"
+#include "mod/MotionBlur.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -26,6 +27,8 @@ constexpr const char *kFovKey = "fov";
 constexpr const char *kTiltEnabledKey = "tilt_enabled";
 constexpr const char *kTiltIntensityKey = "tilt_intensity";
 constexpr const char *kTiltSmoothnessKey = "tilt_smoothness";
+constexpr const char *kMotionBlurEnabledKey = "motion_blur_enabled";
+constexpr const char *kMotionBlurIntensityKey = "motion_blur_intensity";
 
 /** RTTI type name and vtable slots used by the game's CameraAPI. */
 constexpr std::string_view kCameraTypeInfo = "9CameraAPI";
@@ -84,6 +87,8 @@ void normalizeConfig(ModConfig &config) {
         std::clamp(config.tilt_intensity, kMinTiltIntensity, kMaxTiltIntensity);
     config.tilt_smoothness =
         std::clamp(config.tilt_smoothness, kMinTiltSmoothness, kMaxTiltSmoothness);
+    config.motion_blur_intensity =
+        std::clamp(config.motion_blur_intensity, kMinMotionBlurIntensity, kMaxMotionBlurIntensity);
 }
 
 } // namespace
@@ -149,6 +154,20 @@ bool CameraOverhaulMod::enable() {
         mShakeEpoch = std::chrono::steady_clock::now();
 
         try {
+            MotionBlur::instance().setEnabled(config.motion_blur_enabled);
+            MotionBlur::instance().setIntensity(config.motion_blur_intensity);
+            if (MotionBlur::instance().installHook()) {
+                self.getLogger().info("Installed native Motion Blur hook on eglSwapBuffers");
+            } else {
+                self.getLogger().warn("Failed to install native Motion Blur hook");
+            }
+        } catch (const std::exception &ex) {
+            self.getLogger().warn("Exception setting up Motion Blur: {}", ex.what());
+        } catch (...) {
+            self.getLogger().warn("Unknown exception setting up Motion Blur");
+        }
+
+        try {
             pl::input::registerTouchCallback([](const pl::input::TouchEvent &ev) {
                 return instance().handleTouch(ev);
             });
@@ -183,6 +202,14 @@ bool CameraOverhaulMod::enable() {
                             formatFloat(config.tilt_smoothness),
                             formatFloat(kMinTiltSmoothness),
                             formatFloat(kMaxTiltSmoothness), kTiltEnabledKey)
+                    .config(kMotionBlurEnabledKey, "Motion Blur",
+                            pl::modmenu::ConfigType::Toggle,
+                            config.motion_blur_enabled ? "true" : "false")
+                    .config(kMotionBlurIntensityKey, "Blur Intensity",
+                            pl::modmenu::ConfigType::SliderFloat,
+                            formatFloat(config.motion_blur_intensity),
+                            formatFloat(kMinMotionBlurIntensity),
+                            formatFloat(kMaxMotionBlurIntensity), kMotionBlurEnabledKey)
                     .onToggle(onToggle)
                     .onConfigChanged(onConfigChanged)
                     .registerModule();
@@ -213,6 +240,7 @@ bool CameraOverhaulMod::disable() {
     auto &self = getSelf();
     try {
         self.getLogger().debug("Disabling...");
+        MotionBlur::instance().removeHook();
         removeCameraHooks();
         mShake.reset();
         unregisterModule();
@@ -230,6 +258,7 @@ bool CameraOverhaulMod::unload() {
     auto &self = getSelf();
     try {
         self.getLogger().debug("Unloading...");
+        MotionBlur::instance().removeHook();
         removeCameraHooks();
         mShake.reset();
         unregisterModule();
@@ -532,6 +561,16 @@ void CameraOverhaulMod::handleConfigChanged(std::string_view moduleId,
         } else if (key == kTiltSmoothnessKey) {
             config.tilt_smoothness = std::clamp(
                 parseFloat(value, config.tilt_smoothness), kMinTiltSmoothness, kMaxTiltSmoothness);
+            changed = true;
+        } else if (key == kMotionBlurEnabledKey) {
+            config.motion_blur_enabled = parseBool(value, config.motion_blur_enabled);
+            MotionBlur::instance().setEnabled(config.motion_blur_enabled);
+            changed = true;
+        } else if (key == kMotionBlurIntensityKey) {
+            config.motion_blur_intensity = std::clamp(
+                parseFloat(value, config.motion_blur_intensity),
+                kMinMotionBlurIntensity, kMaxMotionBlurIntensity);
+            MotionBlur::instance().setIntensity(config.motion_blur_intensity);
             changed = true;
         }
 

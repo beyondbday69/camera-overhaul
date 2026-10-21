@@ -48,7 +48,6 @@ jobs:
           path: |
             dist/arm64-v8a/camera_overhaul.levipack
             dist/arm64-v8a/camera_overhaul
-            dist/true_first_person.mcpack
           if-no-files-found: error
 
       - name: Publish release asset
@@ -58,5 +57,4 @@ jobs:
           files: |
             dist/arm64-v8a/camera_overhaul.levipack
             dist/arm64-v8a/camera_overhaul/libcamera_overhaul.so
-            dist/true_first_person.mcpack
           generate_release_notes: true

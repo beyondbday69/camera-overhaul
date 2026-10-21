@@ -1,6 +1,8 @@
 {
     "enabled": true,
     "fov": 70,
+    "motion_blur_enabled": false,
+    "motion_blur_intensity": 0.55,
     "tilt_enabled": true,
     "tilt_intensity": 1.0,
     "tilt_smoothness": 8.0,

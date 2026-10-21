@@ -25,6 +25,12 @@ struct ModConfig {
 
     /** How smoothly camera leans and returns to center. */
     float tilt_smoothness = 8.0f;
+
+    /** Enables native GPU accumulation motion blur. */
+    bool motion_blur_enabled = false;
+
+    /** Motion blur trail strength (0.05 to 0.90). */
+    float motion_blur_intensity = 0.55f;
 };
 
 /** Lower bound of the field-of-view slider exposed in the Mod Menu. */
@@ -39,6 +45,10 @@ inline constexpr float kMaxTiltIntensity = 3.0f;
 inline constexpr float kMinTiltSmoothness = 2.0f;
 inline constexpr float kMaxTiltSmoothness = 25.0f;
 
+/** Bounds of the motion blur sliders. */
+inline constexpr float kMinMotionBlurIntensity = 0.05f;
+inline constexpr float kMaxMotionBlurIntensity = 0.90f;
+
 nlohmann::json makeDefaultConfigJson();
 nlohmann::json makeConfigSchemaJson();
 
@@ -47,7 +57,7 @@ nlohmann::json makeConfigSchemaJson();
 template <> struct pl::config::Schema<camera_overhaul::ModConfig> {
     static constexpr std::string_view title = "Camera Overhaul";
     static constexpr std::string_view description =
-        "Dynamic camera lean and tilt mod for Minecraft Bedrock.";
+        "Dynamic camera lean, tilt, and native motion blur mod for Minecraft Bedrock.";
 
     static constexpr FieldSchema field(std::string_view name) {
         if (name == "version")
@@ -85,6 +95,18 @@ template <> struct pl::config::Schema<camera_overhaul::ModConfig> {
                     .description = "How smoothly the camera returns to center.",
                     .minimum = camera_overhaul::kMinTiltSmoothness,
                     .maximum = camera_overhaul::kMaxTiltSmoothness,
+                    .readOnly = false};
+        if (name == "motion_blur_enabled")
+            return {.title = "Motion Blur",
+                    .description = "Enables cinematic GPU accumulation motion blur.",
+                    .minimum = std::nullopt,
+                    .maximum = std::nullopt,
+                    .readOnly = false};
+        if (name == "motion_blur_intensity")
+            return {.title = "Blur Intensity",
+                    .description = "Motion blur trail strength.",
+                    .minimum = camera_overhaul::kMinMotionBlurIntensity,
+                    .maximum = camera_overhaul::kMaxMotionBlurIntensity,
                     .readOnly = false};
         return {};
     }

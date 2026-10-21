@@ -2,7 +2,7 @@
   "type": "preload-native",
   "name": "Camera Overhaul",
   "author": "Swapnil",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "entry": "libcamera_overhaul.so",
   "minecraft_versions": ["1.26.51.1", "1.26.51.*", "1.26.*", "26.51"]
 }
