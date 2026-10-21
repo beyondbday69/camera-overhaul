@@ -13,7 +13,7 @@ hooks are resolved at runtime and removed cleanly on disable/unload.
 | Mod id | `camera_overhaul` |
 | Display name | Camera Overhaul |
 | Author | Swapnil |
-| Version | 0.3.1 |
+| Version | 0.3.2 |
 | Entry library | `libcamera_overhaul.so` |
 | ABI | `arm64-v8a` only |
 | C++ standard | C++20 |

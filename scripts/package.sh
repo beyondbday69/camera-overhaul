@@ -137,8 +137,14 @@ rm -f "${ARCHIVE_PATH}"
 
 if command -v zip >/dev/null 2>&1; then
     (cd "${PACKAGE_DIR}" && zip -r -X -9 "${ARCHIVE_PATH}" manifest.json "${MOD_LIBRARY_NAME}" config)
+    if [[ -d "${REPO_ROOT}/true_first_person" ]]; then
+        (cd "${REPO_ROOT}/true_first_person" && zip -r -X -9 "${DIST_ROOT}/true_first_person.mcpack" manifest.json render_controllers)
+    fi
 else
     (cd "${PACKAGE_DIR}" && python3 -m zipfile -c "${ARCHIVE_PATH}" manifest.json "${MOD_LIBRARY_NAME}" config)
+    if [[ -d "${REPO_ROOT}/true_first_person" ]]; then
+        (cd "${REPO_ROOT}/true_first_person" && python3 -m zipfile -c "${DIST_ROOT}/true_first_person.mcpack" manifest.json render_controllers)
+    fi
 fi
 
 [[ -f "${ARCHIVE_PATH}" ]] || die "Archive was not created: ${ARCHIVE_PATH}"
@@ -146,3 +152,6 @@ fi
 log "Built Camera Overhaul:"
 log "  ${PACKAGE_DIR}"
 log "  ${ARCHIVE_PATH}"
+if [[ -f "${DIST_ROOT}/true_first_person.mcpack" ]]; then
+    log "  ${DIST_ROOT}/true_first_person.mcpack"
+fi
