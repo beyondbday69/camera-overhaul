@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string_view>
 
 #include <pl/Config.hpp>
@@ -39,15 +40,21 @@ template <> struct pl::config::Schema<camera_overhaul::ModConfig> {
         if (name == "version")
             return {.title = "Version",
                     .description = "Config schema version managed by the mod.",
+                    .minimum = std::nullopt,
+                    .maximum = std::nullopt,
                     .readOnly = true};
         if (name == "enabled")
             return {.title = "Enabled",
-                    .description = "Turns the Camera Overhaul module on or off."};
+                    .description = "Turns the Camera Overhaul module on or off.",
+                    .minimum = std::nullopt,
+                    .maximum = std::nullopt,
+                    .readOnly = false};
         if (name == "fov")
             return {.title = "Field of View",
                     .description = "Camera field of view in degrees.",
                     .minimum = camera_overhaul::kMinFov,
-                    .maximum = camera_overhaul::kMaxFov};
+                    .maximum = camera_overhaul::kMaxFov,
+                    .readOnly = false};
         return {};
     }
 };
