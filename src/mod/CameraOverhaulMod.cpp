@@ -25,14 +25,7 @@ constexpr const char *kModuleId = "camera_overhaul.main";
 constexpr const char *kFovKey = "fov";
 constexpr const char *kTiltEnabledKey = "tilt_enabled";
 constexpr const char *kTiltIntensityKey = "tilt_intensity";
-constexpr const char *kShoulderEnabledKey = "shoulder_cam_enabled";
-constexpr const char *kShoulderSideKey = "shoulder_side_offset";
-constexpr const char *kShoulderHeightKey = "shoulder_height_offset";
-constexpr const char *kShakeEnabledKey = "shake_enabled";
-constexpr const char *kShakeIntensityKey = "shake_intensity";
-constexpr const char *kShakeSpeedKey = "shake_speed";
-constexpr const char *kShakeRoughnessKey = "shake_roughness";
-constexpr const char *kShakeIdleKey = "shake_idle";
+constexpr const char *kTiltSmoothnessKey = "tilt_smoothness";
 
 /** RTTI type name and vtable slots used by the game's CameraAPI. */
 constexpr std::string_view kCameraTypeInfo = "9CameraAPI";
@@ -83,22 +76,6 @@ bool parseBool(std::string_view value, bool fallback) {
 
 int clampFov(int value) { return std::clamp(value, kMinFov, kMaxFov); }
 
-float clampShakeIntensity(float value) {
-    return std::clamp(value, kMinShakeIntensity, kMaxShakeIntensity);
-}
-
-float clampShakeSpeed(float value) {
-    return std::clamp(value, kMinShakeSpeed, kMaxShakeSpeed);
-}
-
-float clampShakeRoughness(float value) {
-    return std::clamp(value, kMinShakeRoughness, kMaxShakeRoughness);
-}
-
-float clampShakeIdle(float value) {
-    return std::clamp(value, kMinShakeIdle, kMaxShakeIdle);
-}
-
 std::string formatFloat(float value) { return fmt::format("{:.2f}", value); }
 
 void normalizeConfig(ModConfig &config) {
@@ -107,16 +84,6 @@ void normalizeConfig(ModConfig &config) {
         std::clamp(config.tilt_intensity, kMinTiltIntensity, kMaxTiltIntensity);
     config.tilt_smoothness =
         std::clamp(config.tilt_smoothness, kMinTiltSmoothness, kMaxTiltSmoothness);
-    config.shoulder_side_offset =
-        std::clamp(config.shoulder_side_offset, kMinShoulderSide, kMaxShoulderSide);
-    config.shoulder_height_offset =
-        std::clamp(config.shoulder_height_offset, kMinShoulderHeight, kMaxShoulderHeight);
-    config.shoulder_back_offset =
-        std::clamp(config.shoulder_back_offset, kMinShoulderBack, kMaxShoulderBack);
-    config.shake_intensity = clampShakeIntensity(config.shake_intensity);
-    config.shake_speed = clampShakeSpeed(config.shake_speed);
-    config.shake_roughness = clampShakeRoughness(config.shake_roughness);
-    config.shake_idle = clampShakeIdle(config.shake_idle);
 }
 
 } // namespace
@@ -198,7 +165,7 @@ bool CameraOverhaulMod::enable() {
                 pl::modmenu::ModuleBuilder(kModuleId, "Camera Overhaul")
                     .modId(self.getId())
                     .description(
-                        "Dynamic camera lean/tilt and over-the-shoulder third person view.")
+                        "Dynamic camera lean and tilt mod for Minecraft Bedrock.")
                     .defaultEnabled(config.enabled)
                     .config(kFovKey, "Field of View", pl::modmenu::ConfigType::SliderInt,
                             std::to_string(config.fov), std::to_string(kMinFov),
@@ -211,27 +178,11 @@ bool CameraOverhaulMod::enable() {
                             formatFloat(config.tilt_intensity),
                             formatFloat(kMinTiltIntensity),
                             formatFloat(kMaxTiltIntensity), kTiltEnabledKey)
-                    .config(kShoulderEnabledKey, "Shoulder Camera",
-                            pl::modmenu::ConfigType::Toggle,
-                            config.shoulder_cam_enabled ? "true" : "false")
-                    .config(kShoulderSideKey, "Shoulder Side Offset",
+                    .config(kTiltSmoothnessKey, "Tilt Smoothness",
                             pl::modmenu::ConfigType::SliderFloat,
-                            formatFloat(config.shoulder_side_offset),
-                            formatFloat(kMinShoulderSide),
-                            formatFloat(kMaxShoulderSide), kShoulderEnabledKey)
-                    .config(kShoulderHeightKey, "Shoulder Height",
-                            pl::modmenu::ConfigType::SliderFloat,
-                            formatFloat(config.shoulder_height_offset),
-                            formatFloat(kMinShoulderHeight),
-                            formatFloat(kMaxShoulderHeight), kShoulderEnabledKey)
-                    .config(kShakeEnabledKey, "Handheld Noise Shake",
-                            pl::modmenu::ConfigType::Toggle,
-                            config.shake_enabled ? "true" : "false")
-                    .config(kShakeIntensityKey, "Shake Intensity",
-                            pl::modmenu::ConfigType::SliderFloat,
-                            formatFloat(config.shake_intensity),
-                            formatFloat(kMinShakeIntensity),
-                            formatFloat(kMaxShakeIntensity), kShakeEnabledKey)
+                            formatFloat(config.tilt_smoothness),
+                            formatFloat(kMinTiltSmoothness),
+                            formatFloat(kMaxTiltSmoothness), kTiltEnabledKey)
                     .onToggle(onToggle)
                     .onConfigChanged(onConfigChanged)
                     .registerModule();
@@ -307,22 +258,10 @@ ModConfig CameraOverhaulMod::snapshotConfig() const {
 }
 
 void CameraOverhaulMod::applyShakeSettings(const ModConfig &config) {
-    ShakeSettings settings;
-    settings.enabled = config.shake_enabled;
-    settings.intensity = config.shake_intensity;
-    settings.speed = config.shake_speed;
-    settings.roughness = config.shake_roughness;
-    settings.idle = config.shake_idle;
-
+    TiltSettings settings;
     settings.tiltEnabled = config.tilt_enabled;
     settings.tiltIntensity = config.tilt_intensity;
     settings.tiltSmoothness = config.tilt_smoothness;
-
-    settings.shoulderEnabled = config.shoulder_cam_enabled;
-    settings.shoulderSide = config.shoulder_side_offset;
-    settings.shoulderHeight = config.shoulder_height_offset;
-    settings.shoulderBack = config.shoulder_back_offset;
-
     mShake.configure(settings);
 }
 
@@ -337,22 +276,52 @@ bool CameraOverhaulMod::handleTouch(const pl::input::TouchEvent &ev) {
         return false;
     }
     std::lock_guard lock(mTouchMutex);
-    if (ev.action == 0 || ev.action == 5) {
-        mTouchPoints[ev.pointerId] = TouchPoint{ev.x, ev.y};
-    } else if (ev.action == 2) {
+
+    mMaxSeenX = std::max(mMaxSeenX, ev.x);
+    const float splitX = (mMaxSeenX > 200.0f) ? (mMaxSeenX * 0.45f) : 600.0f;
+
+    if (ev.action == 0 || ev.action == 5) { // ACTION_DOWN / ACTION_POINTER_DOWN
+        const bool isMovement = (ev.x < splitX);
+        mTouchPoints[ev.pointerId] = TouchPoint{
+            .startX = ev.x,
+            .startY = ev.y,
+            .prevX = ev.x,
+            .prevY = ev.y,
+            .isMovement = isMovement,
+        };
+    } else if (ev.action == 2) { // ACTION_MOVE
         auto it = mTouchPoints.find(ev.pointerId);
         if (it != mTouchPoints.end()) {
-            const float dx = ev.x - it->second.x;
-            const float dy = ev.y - it->second.y;
-            it->second.x = ev.x;
-            it->second.y = ev.y;
-            const bool isLook = (ev.x > 700.0f);
-            mShake.addTouchMotion(dx, dy, isLook);
+            if (it->second.isMovement) {
+                // Continuous virtual joystick displacement from touch origin
+                const float displacementX = ev.x - it->second.startX;
+                const float strafe = std::clamp(displacementX / 75.0f, -1.0f, 1.0f);
+                mShake.setTouchStrafe(strafe);
+            } else {
+                // Aim / look turn delta
+                const float dx = ev.x - it->second.prevX;
+                mShake.addTurnDelta(dx);
+            }
+            it->second.prevX = ev.x;
+            it->second.prevY = ev.y;
         } else {
-            mTouchPoints[ev.pointerId] = TouchPoint{ev.x, ev.y};
+            const bool isMovement = (ev.x < splitX);
+            mTouchPoints[ev.pointerId] = TouchPoint{
+                .startX = ev.x,
+                .startY = ev.y,
+                .prevX = ev.x,
+                .prevY = ev.y,
+                .isMovement = isMovement,
+            };
         }
-    } else if (ev.action == 1 || ev.action == 3 || ev.action == 6) {
-        mTouchPoints.erase(ev.pointerId);
+    } else if (ev.action == 1 || ev.action == 3 || ev.action == 6) { // ACTION_UP / ACTION_CANCEL / ACTION_POINTER_UP
+        auto it = mTouchPoints.find(ev.pointerId);
+        if (it != mTouchPoints.end()) {
+            if (it->second.isMovement) {
+                mShake.setTouchStrafe(0.0f);
+            }
+            mTouchPoints.erase(it);
+        }
     }
     return false;
 }
@@ -365,8 +334,6 @@ bool CameraOverhaulMod::handleKey(const pl::input::KeyEvent &ev) {
         mShake.setKeyStrafe(ev.isKeyDown ? -1 : 0);
     } else if (ev.keyCode == 32) { // Key D
         mShake.setKeyStrafe(ev.isKeyDown ? 1 : 0);
-    } else if (ev.isKeyDown && (ev.keyCode == 31 || ev.keyCode == 50)) { // C or V
-        mShake.toggleShoulderSide();
     }
     return false;
 }
@@ -464,7 +431,7 @@ CameraOverhaulMod::getShakeOffsetsDetour(void *self, void *context, float a,
         }
 
         if (!mod.mShakeHookSeen.exchange(true, std::memory_order_relaxed)) {
-            mod.getSelf().getLogger().info("Camera shake hook is live");
+            mod.getSelf().getLogger().info("Camera tilt hook is live");
         }
 
         const double now = mod.shakeTimeSeconds();
@@ -473,27 +440,15 @@ CameraOverhaulMod::getShakeOffsetsDetour(void *self, void *context, float a,
                              : 0.016f;
         mod.mLastSampleTime = now;
 
-        // 1. Dynamic Lean / Roll tilt + optional handheld noise
+        // Dynamic Lean / Roll tilt
         const ShakeOffset rotOffset = mod.mShake.sample(now, dt);
-        if (std::abs(rotOffset.pitch) > 0.001f || std::abs(rotOffset.yaw) > 0.001f ||
-            std::abs(rotOffset.roll) > 0.001f) {
+        if (std::abs(rotOffset.roll) > 0.005f) {
             ShakeEntry rotEntry;
-            rotEntry.x = rotOffset.pitch;
-            rotEntry.y = rotOffset.yaw;
+            rotEntry.x = 0.0f;
+            rotEntry.y = 0.0f;
             rotEntry.z = rotOffset.roll; // DYNAMIC ROLL TILT (degrees)
             rotEntry.type = 0;          // Rotational
             offsets.push_back(rotEntry);
-        }
-
-        // 2. Shoulder Camera positional offset (over-the-shoulder third person)
-        const PositionOffset posOffset = mod.mShake.samplePosition();
-        if (posOffset.x != 0.0f || posOffset.y != 0.0f || posOffset.z != 0.0f) {
-            ShakeEntry posEntry;
-            posEntry.x = posOffset.x;
-            posEntry.y = posOffset.y;
-            posEntry.z = posOffset.z;
-            posEntry.type = 1;          // Positional (blocks)
-            offsets.push_back(posEntry);
         }
     } catch (...) {
         // A failed allocation must never unwind into the game's render loop.
@@ -574,35 +529,9 @@ void CameraOverhaulMod::handleConfigChanged(std::string_view moduleId,
             config.tilt_intensity = std::clamp(
                 parseFloat(value, config.tilt_intensity), kMinTiltIntensity, kMaxTiltIntensity);
             changed = true;
-        } else if (key == kShoulderEnabledKey) {
-            config.shoulder_cam_enabled = parseBool(value, config.shoulder_cam_enabled);
-            changed = true;
-        } else if (key == kShoulderSideKey) {
-            config.shoulder_side_offset = std::clamp(
-                parseFloat(value, config.shoulder_side_offset), kMinShoulderSide, kMaxShoulderSide);
-            changed = true;
-        } else if (key == kShoulderHeightKey) {
-            config.shoulder_height_offset = std::clamp(
-                parseFloat(value, config.shoulder_height_offset), kMinShoulderHeight, kMaxShoulderHeight);
-            changed = true;
-        } else if (key == kShakeEnabledKey) {
-            config.shake_enabled = parseBool(value, config.shake_enabled);
-            changed = true;
-        } else if (key == kShakeIntensityKey) {
-            config.shake_intensity =
-                clampShakeIntensity(parseFloat(value, config.shake_intensity));
-            changed = true;
-        } else if (key == kShakeSpeedKey) {
-            config.shake_speed =
-                clampShakeSpeed(parseFloat(value, config.shake_speed));
-            changed = true;
-        } else if (key == kShakeRoughnessKey) {
-            config.shake_roughness = clampShakeRoughness(
-                parseFloat(value, config.shake_roughness));
-            changed = true;
-        } else if (key == kShakeIdleKey) {
-            config.shake_idle =
-                clampShakeIdle(parseFloat(value, config.shake_idle));
+        } else if (key == kTiltSmoothnessKey) {
+            config.tilt_smoothness = std::clamp(
+                parseFloat(value, config.tilt_smoothness), kMinTiltSmoothness, kMaxTiltSmoothness);
             changed = true;
         }
 

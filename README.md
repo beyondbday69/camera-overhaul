@@ -1,8 +1,7 @@
 # Camera Overhaul
 
 Native **LeviLaunchroid** (Minecraft Bedrock / Android) mod that adds dynamic
-camera lean/tilt when turning and strafing, an over-the-shoulder third person
-camera for clean split-control aiming, and FOV override, built on the
+camera lean/tilt when turning and strafing and FOV override, built on the
 [Preloader SDK](https://github.com/LiteLDev/preloader-android).
 
 The mod hooks the game's own `CameraAPI` vtable through RTTI, so the effect goes
@@ -14,7 +13,7 @@ hooks are resolved at runtime and removed cleanly on disable/unload.
 | Mod id | `camera_overhaul` |
 | Display name | Camera Overhaul |
 | Author | Swapnil |
-| Version | 0.3.0 |
+| Version | 0.3.1 |
 | Entry library | `libcamera_overhaul.so` |
 | ABI | `arm64-v8a` only |
 | C++ standard | C++20 |

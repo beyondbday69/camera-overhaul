@@ -7,6 +7,7 @@
 #include <mutex>
 #include <optional>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include "mod/CameraShake.h"
@@ -44,10 +45,7 @@ static_assert(offsetof(ShakeEntry, type) == 12,
  * registers a Mod Menu module and installs two hooks on the game's CameraAPI:
  *
  *  - slot 7 (getFov) is overridden with the configured field of view.
- *  - slot 6 (getShakeOffsets) gets a procedural handheld offset appended.
- *
- * Both hooks are resolved through RTTI at enable time and removed again in
- * disable()/unload(). A failed lookup is logged and leaves the game untouched.
+ *  - slot 6 (getShakeOffsets) gets a dynamic roll tilt appended.
  */
 class CameraOverhaulMod {
   public:
@@ -97,10 +95,14 @@ class CameraOverhaulMod {
     double mLastSampleTime{0.0};
     std::mutex mTouchMutex;
     struct TouchPoint {
-        float x = 0.0f;
-        float y = 0.0f;
+        float startX = 0.0f;
+        float startY = 0.0f;
+        float prevX = 0.0f;
+        float prevY = 0.0f;
+        bool isMovement = false;
     };
     std::unordered_map<int, TouchPoint> mTouchPoints;
+    float mMaxSeenX{0.0f};
 
     bool handleTouch(const pl::input::TouchEvent &ev);
     bool handleKey(const pl::input::KeyEvent &ev);

@@ -1,5 +1,5 @@
 {
-    "description": "Configuration for the Camera Overhaul native mod.",
+    "description": "Dynamic camera lean and tilt mod for Minecraft Bedrock.",
     "properties": {
         "enabled": {
             "default": true,
@@ -14,6 +14,28 @@
             "minimum": 30.0,
             "title": "Field of View",
             "type": "integer"
+        },
+        "tilt_enabled": {
+            "default": true,
+            "description": "Smoothly tilts the camera when turning and strafing.",
+            "title": "Camera Lean / Tilt",
+            "type": "boolean"
+        },
+        "tilt_intensity": {
+            "default": 1.0,
+            "description": "Multiplier for camera roll angle.",
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Tilt Intensity",
+            "type": "number"
+        },
+        "tilt_smoothness": {
+            "default": 8.0,
+            "description": "How smoothly the camera returns to center.",
+            "maximum": 25.0,
+            "minimum": 2.0,
+            "title": "Tilt Smoothness",
+            "type": "number"
         },
         "version": {
             "default": 1,
